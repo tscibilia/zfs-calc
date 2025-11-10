@@ -103,16 +103,23 @@ const props = defineProps({
 
 const emit = defineEmits(['update', 'remove'])
 
-const localVdev = ref({ ...props.vdev })
+const localVdev = ref({
+  ...props.vdev,
+  drives: [...(props.vdev.drives || [])]
+})
 
 // Update parent when local changes
 watch(localVdev, (newVal) => {
   emit('update', props.index, newVal)
 }, { deep: true })
 
-// Sync props to local
+// Sync props to local (but only if significant changes, not during editing)
 watch(() => props.vdev, (newVal) => {
-  localVdev.value = { ...newVal }
+  // Deep clone to avoid shared references
+  localVdev.value = {
+    ...newVal,
+    drives: newVal.drives ? newVal.drives.map(d => ({ ...d })) : []
+  }
 }, { deep: true })
 
 const raidInfo = computed(() => getRaidTypeInfo(localVdev.value.raidType))

@@ -291,10 +291,11 @@ const terminology = [
 .recommendation {
   margin-top: 1rem;
   padding: 0.75rem;
-  background-color: #e8f5e9;
+  background-color: rgba(76, 175, 80, 0.1);
   border-left: 4px solid var(--secondary-color);
   border-radius: 4px;
   font-size: 0.9rem;
+  color: var(--text-primary);
 }
 
 .terminology-grid {
@@ -388,9 +389,10 @@ const terminology = [
 
 .conversion-note {
   padding: 1rem;
-  background-color: #fff3e0;
+  background-color: rgba(255, 152, 0, 0.1);
   border-left: 4px solid var(--warning-color);
   border-radius: 4px;
   text-align: center;
+  color: var(--text-primary);
 }
 </style>

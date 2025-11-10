@@ -8,7 +8,7 @@
           <p class="text-muted">Plan your ZFS storage pool with accurate capacity calculations</p>
         </div>
         <button @click="toggleTheme" class="theme-toggle" title="Toggle dark mode">
-          <svg v-if="theme === 'dark'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg v-if="theme === 'dark'" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="5"/>
             <line x1="12" y1="1" x2="12" y2="3"/>
             <line x1="12" y1="21" x2="12" y2="23"/>
@@ -19,7 +19,7 @@
             <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
           </svg>
-          <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg v-else width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
           </svg>
         </button>
@@ -33,7 +33,7 @@
           <!-- Data vdevs -->
           <div class="card">
             <div class="card-header">
-              <h2>Data Storage Configuration</h2>
+              <h2>ZFS Pool Configuration</h2>
             </div>
 
             <div class="vdev-groups">
@@ -134,6 +134,23 @@
             <div class="ram-recommendation">
               <strong>Recommended RAM:</strong> {{ recommendedRAM }} GB
             </div>
+
+            <div class="form-group" style="margin-top: 1rem;">
+              <label class="device-checkbox">
+                <input type="checkbox" v-model="config.reserveFreeSpace" />
+                <div>
+                  <strong>Reserve Free Space</strong>
+                  <p class="text-small text-muted">Keep pool below capacity for performance</p>
+                </div>
+              </label>
+              <div v-if="config.reserveFreeSpace" style="margin-left: 1.75rem; margin-top: 0.5rem;">
+                <label>Percentage to Reserve</label>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <input type="number" v-model.number="config.freeSpacePercent" min="5" max="50" step="5" style="width: 80px;" />
+                  <span>%</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -179,7 +196,7 @@
               :reserved="results.slopSpaceTb + results.metadataOverheadTb"
               :available="results.zfsUsableTb"
               :parity="results.parityOverheadTb"
-              :unused="results.recommendedFreeTb"
+              :unused="config.reserveFreeSpace ? (results.totalRawTb * (config.freeSpacePercent / 100)) : 0"
             />
 
             <!-- Detailed Table -->
@@ -210,13 +227,13 @@
                   <span><strong>ZFS Usable</strong></span>
                   <span><strong>{{ results.zfsUsableTb.toFixed(2) }} TB</strong></span>
                 </div>
-                <div class="breakdown-row indent">
-                  <span>Recommended Free (20%)</span>
-                  <span>-{{ results.recommendedFreeTb.toFixed(2) }} TB</span>
+                <div v-if="config.reserveFreeSpace" class="breakdown-row indent">
+                  <span>Recommended Free Space ({{ config.freeSpacePercent }}%)</span>
+                  <span>-{{ (results.totalRawTb * (config.freeSpacePercent / 100)).toFixed(2) }} TB</span>
                 </div>
-                <div class="breakdown-row highlight">
+                <div v-if="config.reserveFreeSpace" class="breakdown-row highlight">
                   <span><strong>Practical Usable</strong></span>
-                  <span><strong>{{ results.practicalUsableTb.toFixed(2) }} TB</strong></span>
+                  <span><strong>{{ (results.zfsUsableTb - (results.totalRawTb * (config.freeSpacePercent / 100))).toFixed(2) }} TB</strong></span>
                 </div>
               </div>
             </details>
@@ -283,7 +300,9 @@ const config = ref({
   zilRedundancy: 'mirror',
   useL2ARC: false,
   l2arcSizeGb: 64,
-  ramScenario: 'basic'
+  ramScenario: 'basic',
+  reserveFreeSpace: true,
+  freeSpacePercent: 20
 })
 
 // Optional drives state
@@ -302,7 +321,10 @@ const addVdev = () => {
 }
 
 const updateVdev = (index, updatedVdev) => {
-  vdevs.value[index] = { ...updatedVdev }
+  vdevs.value[index] = {
+    ...updatedVdev,
+    drives: updatedVdev.drives ? updatedVdev.drives.map(d => ({ ...d })) : []
+  }
 }
 
 const removeVdev = (index) => {
@@ -399,15 +421,103 @@ const copyShareLink = async () => {
   }
 }
 
-// URL Parameter Support (simplified)
-watch([vdevs, config], () => {
-  // URL serialization could be added here
+// URL Parameter Support
+const serializeToURL = () => {
+  const data = {
+    v: vdevs.value.map(vdev => ({
+      r: vdev.raidType,
+      d: vdev.drives.map(d => d.capacityTb)
+    })),
+    c: {
+      zil: config.value.useZIL ? {
+        s: config.value.zilSizeGb,
+        r: config.value.zilRedundancy,
+        n: zilDrives.value.length
+      } : null,
+      l2: config.value.useL2ARC ? {
+        s: config.value.l2arcSizeGb,
+        n: l2arcDrives.value.length
+      } : null,
+      ram: config.value.ramScenario,
+      free: config.value.reserveFreeSpace,
+      pct: config.value.freeSpacePercent
+    }
+  }
+
+  try {
+    const encoded = btoa(JSON.stringify(data))
+    const url = new URL(window.location.href)
+    url.searchParams.set('cfg', encoded)
+    window.history.replaceState({}, '', url.toString())
+  } catch (e) {
+    console.error('Failed to serialize config:', e)
+  }
+}
+
+const deserializeFromURL = () => {
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const cfg = params.get('cfg')
+
+    if (!cfg) return false
+
+    const data = JSON.parse(atob(cfg))
+
+    // Restore vdevs
+    if (data.v && data.v.length > 0) {
+      vdevs.value = data.v.map((v, idx) => ({
+        id: idx + 1,
+        raidType: v.r,
+        drives: v.d.map((cap, dIdx) => ({
+          id: dIdx + 1,
+          capacityTb: cap
+        })),
+        nextDriveId: v.d.length + 1
+      }))
+      nextVdevId.value = data.v.length + 1
+    }
+
+    // Restore config
+    if (data.c) {
+      if (data.c.zil) {
+        config.value.useZIL = true
+        config.value.zilSizeGb = data.c.zil.s
+        config.value.zilRedundancy = data.c.zil.r
+        zilDrives.value = Array(data.c.zil.n).fill(null).map(() => ({ sizeGb: data.c.zil.s }))
+      }
+
+      if (data.c.l2) {
+        config.value.useL2ARC = true
+        config.value.l2arcSizeGb = data.c.l2.s
+        l2arcDrives.value = Array(data.c.l2.n).fill(null).map(() => ({ sizeGb: data.c.l2.s }))
+      }
+
+      if (data.c.ram) config.value.ramScenario = data.c.ram
+      if (data.c.free !== undefined) config.value.reserveFreeSpace = data.c.free
+      if (data.c.pct) config.value.freeSpacePercent = data.c.pct
+    }
+
+    return true
+  } catch (e) {
+    console.error('Failed to deserialize config:', e)
+    return false
+  }
+}
+
+// Watch for changes and update URL
+watch([vdevs, config, zilDrives, l2arcDrives], () => {
+  serializeToURL()
 }, { deep: true })
 
 // Initialize
 onMounted(() => {
   initTheme()
-  if (vdevs.value.length === 0) {
+
+  // Try to load from URL
+  const loaded = deserializeFromURL()
+
+  // If nothing loaded, add default vdev
+  if (!loaded && vdevs.value.length === 0) {
     addVdev()
   }
 })
