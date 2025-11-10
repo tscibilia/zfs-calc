@@ -10,13 +10,39 @@
   --secondary-color: #4CAF50;
   --danger-color: #f44336;
   --warning-color: #ff9800;
+  --success-color: #4CAF50;
+  --info-color: #00BCD4;
+
+  /* Light mode colors */
   --bg-color: #f5f5f5;
   --card-bg: #ffffff;
   --border-color: #e0e0e0;
   --text-primary: #212121;
   --text-secondary: #757575;
+  --drive-bay-bg: #37474f;
+  --drive-bg: #607d8b;
+  --drive-text: #ffffff;
   --shadow: 0 2px 4px rgba(0,0,0,0.1);
   --shadow-lg: 0 4px 12px rgba(0,0,0,0.15);
+
+  /* Capacity chart colors */
+  --capacity-reserved: #FF9800;
+  --capacity-available: #26C6DA;
+  --capacity-parity: #2196F3;
+  --capacity-unused: #BDBDBD;
+}
+
+[data-theme="dark"] {
+  --bg-color: #1a1a1a;
+  --card-bg: #2d2d2d;
+  --border-color: #404040;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --drive-bay-bg: #1a1a1a;
+  --drive-bg: #404040;
+  --drive-text: #e0e0e0;
+  --shadow: 0 2px 4px rgba(0,0,0,0.3);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.4);
 }
 
 body {

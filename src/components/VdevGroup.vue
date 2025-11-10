@@ -1,51 +1,48 @@
 <template>
   <div class="vdev-group" :class="{ 'has-error': hasErrors }">
     <div class="vdev-header">
-      <h4>vdev {{ index + 1 }}</h4>
-      <button @click="$emit('remove', index)" class="danger" v-if="index > 0 || true">Remove</button>
+      <div class="header-left">
+        <h4>vdev {{ index + 1 }}</h4>
+        <select v-model="localVdev.raidType" @change="onRaidTypeChange" class="raid-type-select">
+          <option value="stripe">Stripe</option>
+          <option value="mirror">Mirror</option>
+          <option value="raidz1">RAIDZ1</option>
+          <option value="raidz2">RAIDZ2</option>
+          <option value="raidz3">RAIDZ3</option>
+        </select>
+      </div>
+      <button @click="$emit('remove', index)" class="danger small-btn">Remove</button>
     </div>
 
-    <div class="form-group">
-      <label>RAID Type</label>
-      <select v-model="localVdev.raidType" @change="onRaidTypeChange">
-        <option value="stripe">Stripe (No Redundancy)</option>
-        <option value="mirror">Mirror</option>
-        <option value="raidz1">RAIDZ1 (Single Parity)</option>
-        <option value="raidz2">RAIDZ2 (Double Parity)</option>
-        <option value="raidz3">RAIDZ3 (Triple Parity)</option>
-      </select>
+    <!-- Drive Size Selector -->
+    <div class="size-selector-section">
+      <label class="section-label">Select drive size:</label>
+      <DriveSizeSelector
+        :selected-size="currentDriveSize"
+        @select="onDriveSizeSelect"
+      />
     </div>
 
-    <!-- Drives -->
+    <!-- Drive Bay -->
     <div class="drives-section">
       <div class="drives-header">
-        <label>Drives ({{ localVdev.drives.length }})</label>
-        <span class="text-muted text-small">All drives in a vdev must be the same size</span>
+        <span class="drive-count">{{ localVdev.drives.length }} drive{{ localVdev.drives.length !== 1 ? 's' : '' }}</span>
+        <button @click="resetDrives" class="text-button">Reset</button>
       </div>
 
-      <div class="drives-grid">
+      <div class="drive-bay">
         <div
           v-for="(drive, dIdx) in localVdev.drives"
           :key="drive.id"
-          class="drive-item"
+          class="drive-slot filled"
         >
-          <div class="drive-icon">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <div class="drive-icon-container">
+            <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="18" height="18" rx="2" />
               <circle cx="12" cy="12" r="3" />
             </svg>
           </div>
-          <div class="drive-controls">
-            <input
-              type="number"
-              v-model.number="drive.capacityTb"
-              @input="updateDriveSize(dIdx, $event)"
-              min="0.5"
-              step="0.5"
-              placeholder="Size"
-            />
-            <span class="drive-unit">TB</span>
-          </div>
+          <div class="drive-capacity">{{ drive.capacityTb }} TB</div>
           <button
             @click="removeDrive(dIdx)"
             class="remove-drive-btn"
@@ -56,17 +53,12 @@
           </button>
         </div>
 
-        <!-- Add Drive Button -->
-        <div class="drive-item add-drive" @click="addDrive">
-          <div class="drive-icon">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="16" />
-              <line x1="8" y1="12" x2="16" y2="12" />
-            </svg>
-          </div>
-          <div class="add-drive-label">Add Drive</div>
-        </div>
+        <!-- Empty slots for visual effect (up to 8 slots total) -->
+        <div
+          v-for="n in Math.min(8 - localVdev.drives.length, 4)"
+          :key="`empty-${n}`"
+          class="drive-slot empty"
+        ></div>
       </div>
     </div>
 
@@ -101,6 +93,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import DriveSizeSelector from './DriveSizeSelector.vue'
 import { calculateVdevCapacity, validateVdev, getRaidTypeInfo } from '../zfsCalculations.js'
 
 const props = defineProps({
@@ -149,12 +142,31 @@ const faultTolerance = computed(() => {
   return info.faultTolerance
 })
 
-const addDrive = () => {
-  const firstDriveSize = localVdev.value.drives[0]?.capacityTb || 4
-  localVdev.value.drives.push({
-    id: localVdev.value.nextDriveId++,
-    capacityTb: firstDriveSize
-  })
+const currentDriveSize = computed(() => {
+  return localVdev.value.drives[0]?.capacityTb || null
+})
+
+const onDriveSizeSelect = (size) => {
+  if (localVdev.value.drives.length === 0) {
+    // Add first drive with selected size
+    localVdev.value.drives.push({
+      id: localVdev.value.nextDriveId++,
+      capacityTb: size
+    })
+  } else {
+    // Add another drive with same size
+    localVdev.value.drives.push({
+      id: localVdev.value.nextDriveId++,
+      capacityTb: size
+    })
+    // Update all drives to this size
+    localVdev.value.drives.forEach(drive => {
+      drive.capacityTb = size
+    })
+  }
+
+  // Ensure minimum drives for raid type
+  onRaidTypeChange()
 }
 
 const removeDrive = (index) => {
@@ -163,30 +175,28 @@ const removeDrive = (index) => {
   }
 }
 
-const updateDriveSize = (index, event) => {
-  const newSize = parseFloat(event.target.value)
-  if (!isNaN(newSize) && newSize > 0) {
-    // Update all drives to match (same size in vdev)
-    localVdev.value.drives.forEach(drive => {
-      drive.capacityTb = newSize
-    })
-  }
+const resetDrives = () => {
+  localVdev.value.drives = []
 }
 
 const onRaidTypeChange = () => {
   // Ensure minimum drives for raid type
   const min = minDrives.value
+  const currentSize = localVdev.value.drives[0]?.capacityTb || 4
   while (localVdev.value.drives.length < min) {
-    addDrive()
+    localVdev.value.drives.push({
+      id: localVdev.value.nextDriveId++,
+      capacityTb: currentSize
+    })
   }
 }
 </script>
 
 <style scoped>
 .vdev-group {
-  border: 2px solid var(--border-color);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 1rem;
+  padding: 1.5rem;
   background-color: var(--card-bg);
   transition: border-color 0.2s;
 }
@@ -199,76 +209,125 @@ const onRaidTypeChange = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 1.5rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .vdev-header h4 {
   margin: 0;
   text-transform: uppercase;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
   letter-spacing: 0.5px;
+  font-weight: 700;
+}
+
+.raid-type-select {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+}
+
+.small-btn {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.size-selector-section {
+  margin-bottom: 1.5rem;
+}
+
+.section-label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .drives-section {
-  margin: 1rem 0;
+  margin-bottom: 1rem;
 }
 
 .drives-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
 }
 
-.drives-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 1rem;
+.drive-count {
+  color: var(--text-secondary);
 }
 
-.drive-item {
+.text-button {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  padding: 0;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.text-button:hover {
+  color: var(--primary-dark);
+  transform: none;
+  box-shadow: none;
+}
+
+.drive-bay {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background-color: var(--drive-bay-bg);
+  border-radius: 8px;
+  overflow-x: auto;
+  min-height: 140px;
+  flex-wrap: wrap;
+}
+
+.drive-slot {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 1rem;
-  border: 2px solid var(--border-color);
+  min-width: 100px;
+  padding: 1rem 0.75rem;
   border-radius: 8px;
-  background-color: var(--bg-color);
   transition: all 0.2s;
 }
 
-.drive-item:hover {
-  border-color: var(--primary-color);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow);
+.drive-slot.filled {
+  background-color: var(--drive-bg);
+  color: var(--drive-text);
 }
 
-.drive-icon {
-  color: var(--primary-color);
+.drive-slot.empty {
+  background-color: transparent;
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  opacity: 0.4;
 }
 
-.drive-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  width: 100%;
+.drive-icon-container {
+  color: var(--drive-text);
 }
 
-.drive-controls input {
-  flex: 1;
-  text-align: center;
-  min-width: 0;
-}
-
-.drive-unit {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  font-weight: 600;
+.drive-capacity {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--drive-text);
 }
 
 .remove-drive-btn {
@@ -286,29 +345,17 @@ const onRaidTypeChange = () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 2px solid var(--drive-bay-bg);
 }
 
-.add-drive {
-  cursor: pointer;
-  border-style: dashed;
-  opacity: 0.7;
-}
-
-.add-drive:hover {
-  opacity: 1;
-  background-color: var(--card-bg);
-}
-
-.add-drive-label {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  font-weight: 600;
+.remove-drive-btn:hover {
+  transform: scale(1.1);
 }
 
 .validation-errors {
   margin-top: 1rem;
   padding: 0.75rem;
-  background-color: #ffebee;
+  background-color: rgba(244, 67, 54, 0.1);
   border-left: 4px solid var(--danger-color);
   border-radius: 4px;
 }
@@ -322,7 +369,7 @@ const onRaidTypeChange = () => {
 .vdev-summary {
   margin-top: 1rem;
   padding: 1rem;
-  background-color: #e8f5e9;
+  background-color: rgba(76, 175, 80, 0.1);
   border-radius: 4px;
   border-left: 4px solid var(--secondary-color);
 }
