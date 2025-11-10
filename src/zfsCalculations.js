@@ -111,7 +111,11 @@ export function calculatePoolCapacity(vdevs) {
       zfsUsableTib: 0,
       zfsUsableTb: 0,
       parityOverheadTib: 0,
-      parityOverheadTb: 0
+      parityOverheadTb: 0,
+      recommendedFreeTib: 0,
+      recommendedFreeTb: 0,
+      practicalUsableTib: 0,
+      practicalUsableTb: 0
     }
   }
 
