@@ -50,7 +50,7 @@
       </div>
       <div class="legend-item">
         <span class="legend-color unused"></span>
-        <span>Unused space</span>
+        <span>Recommended Free Space</span>
       </div>
     </div>
   </div>
