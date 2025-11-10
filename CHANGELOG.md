@@ -12,9 +12,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Desktop (≥1200px): 1 row of 4 cards
   - Tablet (768-1199px): 2 rows of 2 cards
   - Mobile (<768px): 4 rows of 1 card
+- Docker support for containerized deployment
+  - Multi-stage Dockerfile with nginx:alpine
+  - Docker Compose configuration
+  - Multi-platform support (linux/amd64, linux/arm64)
+  - Health check configuration
+  - Gzip compression for static assets
+- GitHub Actions CI/CD workflow
+  - Automated semantic versioning based on conventional commits
+  - Automatic GitHub release creation with changelog
+  - Automated Docker image builds and publishing to GHCR
+  - Multiple Docker tags: version, major.minor, major, latest
+- Comprehensive deployment documentation
+  - Docker deployment instructions
+  - CI/CD pipeline documentation
+  - Static hosting options (Netlify, Vercel, GitHub Pages)
 
 ### Changed
 - Increased dark mode toggle icon from 32x32 to 40x40 pixels (25% larger)
+- Updated README with Docker deployment section
+- Moved technical details to .claude.md for better documentation organization
 
 ## [0.3.0] - 2024-11-10
 
