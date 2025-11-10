@@ -1,6 +1,6 @@
 # ZFS Storage Calculator
 
-An interactive web-based calculator for ZFS storage configurations, inspired by the Synology RAID Calculator. Plan your ZFS storage pools with accurate capacity calculations, visual vdev grouping, and comprehensive educational content.
+An interactive web-based calculator for planning ZFS storage pools with accurate capacity calculations, visual drive management, and comprehensive educational content. Inspired by the Synology RAID Calculator.
 
 ![ZFS Calculator](https://img.shields.io/badge/ZFS-Calculator-blue)
 ![Vue 3](https://img.shields.io/badge/Vue-3-brightgreen)
@@ -8,39 +8,35 @@ An interactive web-based calculator for ZFS storage configurations, inspired by 
 
 ## Features
 
-### Storage Configuration
-- **Multiple vdev Groups**: Create and manage multiple vdevs with different RAID types
-- **Visual Drive Management**: Add/remove drives with intuitive visual interface
-- **All ZFS RAID Types**: Stripe, Mirror, RAIDZ1, RAIDZ2, RAIDZ3
-- **Accurate Calculations**: Accounts for parity, slop space, metadata overhead, and padding
+### Storage Planning
+- **Multiple vdev Groups** - Create and configure multiple vdevs with different RAID types
+- **Visual Drive Management** - Synology-style drive bays with intuitive add/remove interface
+- **All ZFS RAID Types** - Stripe, Mirror, RAIDZ1, RAIDZ2, RAIDZ3 with accurate overhead calculations
+- **Real-time Calculations** - Instant capacity updates accounting for:
+  - Parity and padding overhead
+  - Slop space (ZFS reserved space)
+  - Metadata overhead
+  - Configurable free space reservation (5-50%, default 20%)
 
 ### Optional Devices
-- **ZIL/SLOG Support**: Configure separate intent log devices with mirroring options
-- **L2ARC Cache**: Add read cache devices for improved performance
-- **Smart Sizing**: Automatic recommendations based on RAM and use case
+- **ZIL/SLOG** - Configure separate intent log SSDs with mirroring for sync write performance
+- **L2ARC Cache** - Add read cache devices for improved performance
+- **Special Metadata vdev** - Dedicated SSDs for metadata and small blocks (with critical redundancy warnings)
+- **Dynamic Sizing Recommendations** - Automatic size suggestions based on pool capacity and RAM
 
-### Advanced Features
-- **RAM Recommendations**: Basic (1 GB/TB) and Deduplication (5 GB/TB) scenarios
-- **URL Sharing**: Share configurations via query parameters
-- **Real-time Calculations**: Instant capacity and efficiency updates
-- **Educational Content**: Comprehensive information about ZFS types and concepts
+### User Experience
+- **Dark Mode** - System preference detection with manual toggle and localStorage persistence
+- **Shareable Configurations** - Copy shareable URLs with complete configuration encoded in query parameters
+- **Responsive Design** - Optimized for desktop, tablet, and mobile devices
+- **Educational Content** - Comprehensive information about ZFS concepts, RAID types, and storage units
 
-### Capacity Calculations
-The calculator provides detailed breakdowns including:
-- Total raw storage capacity
-- Zpool storage capacity (after parity)
-- Slop space allocation (ZFS reserved space)
-- Metadata overhead
-- ZFS usable storage capacity
-- Recommended free space (20% for performance)
-- Practical usable capacity
-
-## Tech Stack
-
-- **Frontend**: Vue 3 (Composition API)
-- **Build Tool**: Vite
-- **Styling**: Custom CSS with CSS variables
-- **Deployment**: Static site (can be hosted anywhere)
+### Capacity Breakdown
+The calculator provides detailed analysis including:
+- Total raw storage capacity (TB and TiB)
+- Usable capacity after all overhead
+- Storage efficiency percentage
+- Visual capacity bar with color-coded segments
+- Collapsible detailed breakdown table
 
 ## Getting Started
 
@@ -50,6 +46,10 @@ The calculator provides detailed breakdowns including:
 ### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/tscibilia/zfs-calc.git
+cd zfs-calc
+
 # Install dependencies
 npm install
 
@@ -63,87 +63,95 @@ npm run build
 npm run preview
 ```
 
-### Usage
+The development server will start at `http://localhost:5173`
 
-1. **Add vdev Groups**: Click "Add vdev Group" to create storage groups
-2. **Select RAID Type**: Choose from Stripe, Mirror, RAIDZ1, RAIDZ2, or RAIDZ3
-3. **Add Drives**: Click the "Add Drive" button and set capacity (all drives in a vdev must be the same size)
-4. **Configure Optional Devices**: Enable ZIL/SLOG or L2ARC if needed
-5. **Review Results**: See real-time capacity calculations and recommendations
-6. **Share Configuration**: Use "Copy Share Link" to share your setup
+## Usage Guide
 
-## ZFS Storage Types
+### Basic Configuration
 
-### Stripe
-- **No redundancy** - Maximum performance and capacity
-- **Fault Tolerance**: None
-- **Use Case**: Non-critical data or when backed by other redundancy
+1. **Add vdev Groups**
+   - Click "+ Add Another vdev Group" to create storage groups
+   - Each vdev group can have a different RAID type
 
-### Mirror (RAID1/10)
-- **Full copies** across drives - Maximum redundancy
-- **Fault Tolerance**: N-1 drives
-- **Use Case**: Critical data, high-performance workloads
+2. **Select RAID Type**
+   - Choose from dropdown: Stripe, Mirror, RAIDZ1, RAIDZ2, or RAIDZ3
+   - Minimum drives automatically enforced per RAID type
 
-### RAIDZ1
-- **Single parity** - Good balance of capacity and protection
-- **Fault Tolerance**: 1 drive
-- **Optimal**: 3-9 drives per vdev
-- **Use Case**: Home and small business storage
+3. **Add Drives**
+   - Click a drive size button (24TB to 0.5TB) to add drives
+   - All drives in a vdev must be the same size
+   - Visual drive bays show occupied and empty slots
+   - Remove individual drives with × button or reset all
 
-### RAIDZ2
-- **Double parity** - Excellent protection with good efficiency
-- **Fault Tolerance**: 2 drives
-- **Optimal**: 6-10 drives per vdev
-- **Use Case**: Recommended for most production environments
+4. **Configure Optional Devices** (if needed)
+   - Enable ZIL/SLOG for improved sync write performance
+   - Enable L2ARC for extended read caching
+   - Enable Metadata vdev for metadata and small block acceleration
+   - Configure redundancy (mirroring recommended for critical devices)
 
-### RAIDZ3
-- **Triple parity** - Maximum protection
-- **Fault Tolerance**: 3 drives
-- **Optimal**: 9-15 drives per vdev
-- **Use Case**: Large archives, critical data requiring maximum protection
+5. **Review Results**
+   - Available capacity displayed prominently
+   - Quick stats: total raw, efficiency, vdev count, drive count
+   - Visual capacity bar shows space allocation
+   - Detailed breakdown available in collapsible section
 
-## Understanding vdevs
+6. **Share Configuration**
+   - Click "Copy Share Link" to copy shareable URL
+   - URL contains complete configuration in compact Base64 format
+   - Anyone with the link can view your exact configuration
 
-A **vdev (Virtual Device)** is a group of physical drives forming a single redundant unit:
-- All drives in a vdev must be the same size
-- Multiple vdevs can be combined into a pool
-- Pool performance is limited by the slowest vdev
-- Pool capacity is limited by the smallest vdev
+### Tips and Best Practices
 
-## Storage Units
+- **RAIDZ2 Recommended**: Best balance of protection, efficiency, and performance for most use cases
+- **Mirror for Speed**: Choose mirror for maximum IOPS and simplest management
+- **vdev Sizing**: Keep 3-9 drives for RAIDZ1, 6-10 for RAIDZ2, 9-15 for RAIDZ3
+- **Metadata vdev**: Always use mirrored configuration - loss means loss of entire pool!
+- **Free Space**: Keep 20% free for optimal performance and COW operations
+- **RAM**: Plan for 1 GB per TB (basic) or 5 GB per TB (deduplication)
 
-- **TB (Terabyte)**: Decimal units (powers of 10) - 1 TB = 1,000 GB
-  - Used by drive manufacturers
-- **TiB (Tebibyte)**: Binary units (powers of 2) - 1 TiB = 1,024 GiB
-  - Used by operating systems
-  - **Conversion**: 1 TB ≈ 0.909 TiB
+### Understanding Results
 
-## Project Structure
+- **Total Raw** - Sum of all drive capacities
+- **System Reserved** - Slop space and metadata overhead
+- **Parity & Padding** - Space used for redundancy and alignment
+- **ZFS Usable** - Actual capacity available for data
+- **Free Space Reserved** - Optional buffer for performance (configurable)
+- **Practical Usable** - Final capacity after reserved free space
+- **Efficiency** - Percentage of raw capacity available for data
 
-```
-zfs-calc/
-├── src/
-│   ├── components/
-│   │   ├── VdevGroup.vue          # vdev configuration component
-│   │   ├── ResultsPanel.vue        # Results display component
-│   │   └── EducationalContent.vue  # Educational information
-│   ├── App.vue                     # Main application component
-│   ├── main.js                     # Application entry point
-│   ├── style.css                   # Global styles
-│   └── zfsCalculations.js          # ZFS calculation engine
-├── index.html
-├── vite.config.js
-└── package.json
-```
+## Educational Resources
+
+The calculator includes built-in educational content covering:
+
+- **ZFS RAID Types** - Detailed comparison of Stripe, Mirror, RAIDZ1/2/3
+- **vdev Concepts** - How virtual devices work and combine into pools
+- **Storage Units** - TB vs TiB conversions and why they differ
+- **Optional Features** - When and how to use ZIL/SLOG, L2ARC, and metadata vdevs
+
+Access the "Understanding ZFS Storage" section at the bottom of the calculator for comprehensive explanations.
+
+## Technical Details
+
+For technical documentation including architecture, calculations, and development guidelines, see [.claude.md](.claude.md)
+
+Built with Vue 3, Vite, and modern web technologies. No external dependencies beyond Vue core.
 
 ## Contributing
 
-Contributions are welcome! Areas for improvement:
-- Additional RAID type visualizations
-- Performance comparison tools
-- Cost calculation features
-- Export configuration to ZFS commands
-- Mobile responsiveness improvements
+Contributions welcome! Areas for improvement:
+
+- Export configuration to ZFS CLI commands
+- Import from existing `zpool status` output
+- Cost calculator with price per TB
+- Performance projections (IOPS, throughput)
+- Multi-language support (i18n)
+- Mobile app wrapper
+
+Please open an issue to discuss major changes before submitting a PR.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
 
 ## License
 
@@ -151,6 +159,10 @@ MIT License - feel free to use this calculator for any purpose.
 
 ## Acknowledgments
 
-- Inspired by the Synology RAID Calculator
-- ZFS calculation methodology from OpenZFS documentation
-- Community feedback and contributions
+- Inspired by the [Synology RAID Calculator](https://www.synology.com/en-us/support/RAID_calculator)
+- ZFS calculation methodology from [OpenZFS documentation](https://openzfs.github.io/openzfs-docs/)
+- Reference implementation: [45Drives ZFS Calculator](https://zfs-calc.45d.io/)
+
+---
+
+Built with ❤️ for the ZFS community
