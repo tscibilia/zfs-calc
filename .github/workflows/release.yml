@@ -71,14 +71,13 @@ jobs:
           fi
 
           # Create changelog content
-          CHANGELOG="## What's Changed
+          cat > RELEASE_NOTES.md <<EOF
+          ## What's Changed
 
-$COMMITS
+          ${COMMITS}
 
-**Full Changelog**: https://github.com/${{ github.repository }}/compare/${LAST_TAG}...v${{ steps.semver.outputs.version }}"
-
-          # Save to file for release notes
-          echo "$CHANGELOG" > RELEASE_NOTES.md
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${LAST_TAG}...v${{ steps.semver.outputs.version }}
+          EOF
 
       - name: Create GitHub Release
         if: steps.version_check.outputs.changed == 'true'
