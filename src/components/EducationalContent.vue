@@ -83,6 +83,17 @@
         </div>
 
         <div class="feature-card">
+          <h3>Special Metadata vdev</h3>
+          <p><strong>Metadata-only special vdev</strong> stores filesystem metadata and optionally small blocks on fast SSDs, dramatically improving metadata-intensive operations and small file performance.</p>
+          <ul>
+            <li><strong>Sizing:</strong> Typically 10-20% of data pool size, minimum 32 GB</li>
+            <li><strong>Redundancy:</strong> Mirror (2-way) or 3-way mirror strongly recommended</li>
+            <li><strong>Use case:</strong> Workloads with many small files, heavy metadata operations, or VMs</li>
+            <li><strong>Warning:</strong> Loss of metadata vdev means loss of entire pool - redundancy is critical!</li>
+          </ul>
+        </div>
+
+        <div class="feature-card">
           <h3>RAM Requirements</h3>
           <p>ZFS is memory-intensive and benefits greatly from adequate RAM:</p>
           <ul>
