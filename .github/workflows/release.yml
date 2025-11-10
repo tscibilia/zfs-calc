@@ -1,0 +1,160 @@
+name: Release and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  packages: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Create Release and Build Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for semantic versioning
+
+      - name: Determine version bump
+        id: semver
+        uses: paulhatch/semantic-version@v5.4.0
+        with:
+          # Tag prefix
+          tag_prefix: "v"
+          # Major version bump patterns
+          major_pattern: "(MAJOR|feat!|fix!|refactor!|perf!)"
+          # Minor version bump patterns
+          minor_pattern: "(MINOR|feat|feature)"
+          # Version format
+          version_format: "${major}.${minor}.${patch}"
+          # Search commit messages for version bump indicators
+          search_commit_body: true
+          # Bump strategy
+          bump_each_commit: false
+
+      - name: Check if version changed
+        id: version_check
+        run: |
+          if [ "${{ steps.semver.outputs.version }}" != "${{ steps.semver.outputs.current_version }}" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Version will be bumped from ${{ steps.semver.outputs.current_version }} to ${{ steps.semver.outputs.version }}"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No version bump needed"
+          fi
+
+      - name: Create Git Tag
+        if: steps.version_check.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ steps.semver.outputs.version }}" -m "Release v${{ steps.semver.outputs.version }}"
+          git push origin "v${{ steps.semver.outputs.version }}"
+
+      - name: Generate Changelog
+        if: steps.version_check.outputs.changed == 'true'
+        id: changelog
+        run: |
+          # Get commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          else
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+
+          # Create changelog content
+          CHANGELOG="## What's Changed
+
+$COMMITS
+
+**Full Changelog**: https://github.com/${{ github.repository }}/compare/${LAST_TAG}...v${{ steps.semver.outputs.version }}"
+
+          # Save to file for release notes
+          echo "$CHANGELOG" > RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        if: steps.version_check.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "v${{ steps.semver.outputs.version }}"
+          name: "Release v${{ steps.semver.outputs.version }}"
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        if: steps.version_check.outputs.changed == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: steps.version_check.outputs.changed == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        if: steps.version_check.outputs.changed == 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}},value=v${{ steps.semver.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.semver.outputs.version }}
+            type=semver,pattern={{major}},value=v${{ steps.semver.outputs.version }}
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        if: steps.version_check.outputs.changed == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ steps.semver.outputs.version }}
+
+      - name: Output summary
+        if: steps.version_check.outputs.changed == 'true'
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: v${{ steps.semver.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Previous Version**: ${{ steps.semver.outputs.current_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Docker Image**: ghcr.io/${{ github.repository }}:${{ steps.semver.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release URL**: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.semver.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Docker Tags Created:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ github.repository }}:${{ steps.semver.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ github.repository }}:${{ steps.semver.outputs.major }}.${{ steps.semver.outputs.minor }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ github.repository }}:${{ steps.semver.outputs.major }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ github.repository }}:latest\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: No release needed
+        if: steps.version_check.outputs.changed == 'false'
+        run: |
+          echo "## No Release Needed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No version bump detected in commit messages." >> $GITHUB_STEP_SUMMARY
+          echo "Current version: ${{ steps.semver.outputs.current_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To trigger a release, use conventional commit messages:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`feat:\` for new features (minor bump)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`fix:\` for bug fixes (patch bump)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`feat!:\` or \`fix!:\` for breaking changes (major bump)" >> $GITHUB_STEP_SUMMARY

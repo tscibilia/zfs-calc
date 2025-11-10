@@ -65,6 +65,27 @@ npm run preview
 
 The development server will start at `http://localhost:5173`
 
+## Docker Deployment
+
+For production deployment or containerized environments:
+
+```bash
+# Option 1: Build locally
+docker build -t zfs-calculator .
+docker run -d -p 8080:80 zfs-calculator
+
+# Option 2: Use Docker Compose
+docker-compose up -d
+
+# Option 3: Pull from GitHub Container Registry
+docker pull ghcr.io/tscibilia/zfs-calc:latest
+docker run -d -p 8080:80 ghcr.io/tscibilia/zfs-calc:latest
+```
+
+Access the application at `http://localhost:8080`
+
+The Docker image is automatically built and published on every release using GitHub Actions. Multi-platform support includes `linux/amd64` and `linux/arm64`.
+
 ## Usage Guide
 
 ### Basic Configuration
