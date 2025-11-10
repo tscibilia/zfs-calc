@@ -153,7 +153,7 @@ Access the "Understanding ZFS Storage" section at the bottom of the calculator f
 
 ## Technical Details
 
-For technical documentation including architecture, calculations, and development guidelines, see [.claude.md](.claude.md)
+For technical documentation including architecture, calculations, and development guidelines, see [CLAUDE.md](CLAUDE.md)
 
 Built with Vue 3, Vite, and modern web technologies. No external dependencies beyond Vue core.
 

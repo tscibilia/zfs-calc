@@ -1,172 +1,433 @@
-# CLAUDE.md
+# ZFS Storage Calculator - Technical Documentation
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
-
-ZFS Storage Calculator is an interactive web-based calculator for planning ZFS storage configurations. It provides accurate capacity calculations accounting for parity, slop space, metadata overhead, and padding. Inspired by the Synology RAID Calculator.
-
-## Development Commands
-
-```bash
-# Install dependencies
-npm install
-
-# Run development server (port 5173 by default)
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-```
+This document contains technical information for developers and AI assistants working on this project.
 
 ## Tech Stack
 
-- **Vue 3** with Composition API (`<script setup>`)
-- **Vite** as build tool (v5.0.12)
-- **No state management library** - uses Vue's reactive refs
-- **No testing framework** - currently no test suite
-- **No linting/formatting tools** configured
+### Frontend Framework
+- **Vue 3.4.15** - Composition API with `<script setup>` syntax
+- **Vite 5.0.12** - Build tool and dev server
+- **@vitejs/plugin-vue 5.0.3** - Vue 3 plugin for Vite
 
-## Architecture
+### Core Technologies
+- **JavaScript (ES6+)** - Modern JavaScript with modules
+- **CSS3** - Custom CSS with CSS variables for theming
+- **HTML5** - Semantic markup
 
-### Core Calculation Engine (`src/zfsCalculations.js`)
+### Browser APIs Used
+- **localStorage** - Theme persistence
+- **Clipboard API** - Copy share link functionality
+- **matchMedia** - System dark mode preference detection
+- **URL/URLSearchParams** - Configuration sharing via query parameters
+- **Base64 encoding** - Compact URL serialization
 
-The heart of the application - a pure JavaScript module with no dependencies. Contains all ZFS-specific calculation logic:
+### No External Dependencies
+- Pure Vue 3 with no additional libraries
+- No UI frameworks (custom components)
+- No state management libraries (Composition API refs/computed)
+- No routing (single-page app)
 
-- **Unit conversions**: TB ↔ TiB conversions accounting for decimal (1000) vs binary (1024) units
-- **Capacity calculations**: Per-vdev and pool-wide calculations with overhead
-- **RAID type metadata**: Configuration requirements, fault tolerance, performance characteristics
-- **Validation**: Ensures vdev configurations meet minimum requirements
-- **Overhead calculations**:
-  - Parity overhead (varies by RAID type)
-  - Slop space (1/32 of pool, min 128 MiB, max half the pool)
-  - Metadata overhead (~1.5%)
-  - Stripe padding (~3% for RAIDZ types)
-
-All functions are pure and can be tested/used independently.
-
-### Component Structure
-
-**`App.vue`** - Main application component
-- Manages all vdevs (virtual device groups) in reactive array
-- Handles optional device configuration (ZIL/SLOG, L2ARC)
-- Implements URL-based configuration sharing via serialization
-- Coordinates calculations via computed properties
-- Uses 2-column grid layout (config panel + results panel)
-
-**`VdevGroup.vue`** - Individual vdev configuration
-- Manages drives within a single vdev (all must be same size)
-- Validates RAID type requirements
-- Visual drive grid with add/remove functionality
-- Real-time capacity and efficiency display
-- Automatically enforces minimum drive counts when RAID type changes
-
-**`ResultsPanel.vue`** - Displays calculation results
-- Shows capacity breakdown (raw → zpool → usable)
-- Visualizes efficiency and overhead
-- Provides sharing functionality
-
-**`EducationalContent.vue`** - Reference information
-- RAID type explanations and recommendations
-- ZFS concepts and best practices
-
-### State Management Pattern
-
-- **No Vuex/Pinia** - state lives in `App.vue`
-- Vdevs array managed with `ref()` and reactive updates
-- Parent-child communication via props (down) and emits (up)
-- `VdevGroup` maintains local copy of vdev and syncs via watchers
-- URL params sync via `watch()` on state changes
-
-### URL Configuration Sharing
-
-Configurations are serialized to URL query params:
-- Compact JSON format (shortened keys: `r` for raidType, `d` for drives)
-- Survives page refresh
-- Enables sharing configurations
-- Deserialized on mount to restore state
-
-## Key Implementation Details
-
-### Drive Size Enforcement
-When user changes any drive size in a vdev, ALL drives in that vdev update to match (ZFS requirement). See `VdevGroup.vue:updateDriveSize()`.
-
-### RAID Type Validation
-When RAID type changes, component automatically adds drives to meet minimum requirements (e.g., RAIDZ2 needs ≥4 drives). See `VdevGroup.vue:onRaidTypeChange()`.
-
-### Calculation Flow
-1. User modifies vdevs → local state updates
-2. Watcher emits update to parent (`App.vue`)
-3. Computed property `calculationResults` recalculates via `calculatePoolCapacity()`
-4. Results flow down to `ResultsPanel` via props
-5. URL updates via separate watcher
-
-### CSS Architecture
-- CSS variables for theming (defined in `src/style.css`)
-- Scoped component styles
-- Grid-based layouts (vdevs, drives, main layout)
-- Responsive breakpoints at 1024px
-
-## File Organization
+## Project Structure
 
 ```
-src/
-├── App.vue                      # Root component & state management
-├── main.js                      # Vue app initialization
-├── style.css                    # Global styles & CSS variables
-├── zfsCalculations.js           # Pure calculation functions
-└── components/
-    ├── VdevGroup.vue            # Per-vdev configuration UI
-    ├── ResultsPanel.vue         # Calculation results display
-    └── EducationalContent.vue   # Static educational content
+zfs-calc/
+├── src/
+│   ├── components/
+│   │   ├── VdevGroup.vue          # Individual vdev configuration
+│   │   │                          # - Drive bay visualization
+│   │   │                          # - RAID type selector
+│   │   │                          # - Drive management (add/remove)
+│   │   │                          # - Deep cloning for reactivity
+│   │   │
+│   │   ├── DriveSizeSelector.vue  # Synology-style size buttons
+│   │   │                          # - 14 common drive sizes
+│   │   │                          # - Grid layout (24TB to 0.5TB)
+│   │   │
+│   │   ├── OptionalDrives.vue     # Visual drive bays for optional devices
+│   │   │                          # - ZIL/SLOG, L2ARC, Metadata vdevs
+│   │   │                          # - Add/remove drive buttons
+│   │   │                          # - Max drives enforcement
+│   │   │
+│   │   ├── CapacityBar.vue        # Color-coded capacity visualization
+│   │   │                          # - Horizontal bar chart
+│   │   │                          # - Segments: reserved, available, parity, unused
+│   │   │                          # - Responsive labels
+│   │   │
+│   │   └── EducationalContent.vue # ZFS education section
+│   │                              # - RAID types comparison
+│   │                              # - vdev concepts
+│   │                              # - Storage units (TB vs TiB)
+│   │                              # - Optional features (ZIL, L2ARC, metadata)
+│   │                              # - Responsive grid layout
+│   │
+│   ├── App.vue                     # Main application component
+│   │                              # - State management
+│   │                              # - Theme management
+│   │                              # - URL serialization/deserialization
+│   │                              # - Results calculations
+│   │                              # - Two-column layout
+│   │
+│   ├── main.js                     # Application entry point
+│   │                              # - Vue app creation and mounting
+│   │
+│   ├── style.css                   # Global styles
+│   │                              # - CSS variables for theming
+│   │                              # - Light and dark mode definitions
+│   │                              # - Responsive breakpoints
+│   │                              # - Common component styles
+│   │
+│   └── zfsCalculations.js          # ZFS calculation engine
+│                                   # - TB/TiB conversions
+│                                   # - Slop space calculations
+│                                   # - Parity overhead calculations
+│                                   # - Pool capacity aggregation
+│                                   # - RAM/ZIL/L2ARC sizing
+│
+├── dist/                           # Production build output (gitignored)
+├── node_modules/                   # Dependencies (gitignored)
+├── imgRefs/                        # Reference images (Synology calculator)
+├── index.html                      # HTML entry point
+├── vite.config.js                  # Vite configuration
+├── package.json                    # Project metadata and dependencies
+├── package-lock.json               # Locked dependency versions
+├── .gitignore                      # Git ignore patterns
+├── README.md                       # User-facing documentation
+├── CHANGELOG.md                    # Version history
+└── .claude.md                      # This file (technical docs)
 ```
 
-## Development Notes
+## Key Technical Concepts
 
-- **No TypeScript** - using plain JavaScript
-- **No prop validation** - Vue components use Object/Number without detailed PropTypes
-- **Vite base path** set to `./` for flexible deployment (can be served from subdirectory)
-- **Drive IDs** are component-local and not globally unique (safe because scoped to vdev)
-- **Next ID counters** track via `nextVdevId` and per-vdev `nextDriveId`
+### ZFS Calculations
 
-## ZFS-Specific Knowledge
+#### TB to TiB Conversion
+```javascript
+// 1 TB = 1000 GB (decimal)
+// 1 TiB = 1024 GiB (binary)
+// 1 TB ≈ 0.909 TiB
+function tbToTib(tb) {
+  return tb * 1000 / 1024
+}
+```
 
-Understanding these concepts is critical when modifying calculations:
+#### Slop Space
+- **Formula**: 1/32 of total pool capacity
+- **Minimum**: 128 MiB (0.000128 TiB)
+- **Maximum**: 50% of pool (safety cap)
+- **Purpose**: ZFS reserved space for writes when pool is near full
 
-- **vdev**: A group of drives forming one redundant unit. Pool capacity is sum of all vdevs.
-- **Slop space**: Reserved space ZFS keeps for metadata and emergency allocations (1/32 of pool)
-- **Stripe padding**: RAIDZ overhead for aligning data across variable-width stripes (~3%)
-- **Metadata**: Internal ZFS structures for tracking blocks, checksums, snapshots (~1.5%)
-- **TB vs TiB**: Marketing uses TB (decimal), systems use TiB (binary). Calculator shows both.
-- **Pool vs Usable**: "Zpool capacity" is after parity, "ZFS usable" is after all overhead
+#### Parity Overhead
+- **Stripe**: No parity (100% efficient, no redundancy)
+- **Mirror**: (N-1)/N drives lost to parity
+- **RAIDZ1**: 1 drive + ~3% padding overhead
+- **RAIDZ2**: 2 drives + ~3% padding overhead
+- **RAIDZ3**: 3 drives + ~3% padding overhead
 
-Calculation order: Raw → After Parity → After Padding → Zpool Capacity → (minus slop & metadata) → ZFS Usable → (minus 20% recommended free space) → Practical Usable
+#### Metadata Overhead
+- **Percentage**: ~1.5% of usable capacity
+- **Purpose**: Filesystem metadata, checksums, block pointers
 
-## Common Development Patterns
+### Component Architecture
 
-### Adding a New RAID Type
-1. Update `getRaidTypeInfo()` in `zfsCalculations.js` with type metadata
-2. Add parity calculation in `calculateParityOverhead()`
-3. Add option to `<select>` in `VdevGroup.vue`
-4. Update validation in `validateVdev()`
+#### Reactivity Patterns
+- **Deep Cloning**: Required for arrays in props to prevent shared references
+```javascript
+const localVdev = ref({
+  ...props.vdev,
+  drives: [...(props.vdev.drives || [])]
+})
+```
+- **Computed Properties**: Used for derived state (results, recommendations)
+- **Watchers**: Handle side effects (theme changes, URL updates, optional device initialization)
 
-### Adding a New Overhead Factor
-1. Create calculation function in `zfsCalculations.js`
-2. Integrate into `calculatePoolCapacity()` or `calculateVdevCapacity()`
-3. Display in `ResultsPanel.vue` breakdown
+#### State Management
+- **No Vuex/Pinia**: Simple enough for Composition API refs
+- **Top-level state**: vdevs array, config object, optional drives arrays
+- **Event emission**: Child components emit updates to parent (App.vue)
 
-### Adding New Optional Device Type
-1. Add state to `config` ref in `App.vue`
-2. Add UI controls in optional devices card
-3. Create recommendation calculation function
-4. Update URL serialization/deserialization
+### URL Sharing
 
-## Browser Compatibility
+#### Serialization Format
+```javascript
+{
+  v: [                              // vdevs array
+    {
+      r: 'raidz2',                 // RAID type
+      d: [18, 18, 18, 18, 18, 18]  // drive capacities in TB
+    }
+  ],
+  c: {                              // config object
+    zil: { s: 32, r: 'mirror', n: 2 },     // ZIL/SLOG
+    l2: { s: 128, n: 1 },                   // L2ARC
+    meta: { s: 512, r: 'mirror', n: 2 },   // Metadata vdev
+    ram: 'basic',                           // RAM scenario
+    free: true,                             // Reserve free space?
+    pct: 20                                 // Free space percentage
+  }
+}
+```
+- **Encoding**: JSON.stringify() → btoa() → URL parameter 'cfg'
+- **Decoding**: URL parameter 'cfg' → atob() → JSON.parse()
+- **Updates**: URL auto-updates on any configuration change
 
-Standard modern browser features used:
-- ES6+ (destructuring, arrow functions, computed properties)
-- URL API for query param management
-- Vue 3 Composition API
+### Theme System
+
+#### CSS Variables
+```css
+/* Light theme (default) */
+--bg-color: #f5f5f5
+--card-bg: #ffffff
+--text-primary: #333333
+--drive-bay-bg: #e0e0e0
+
+/* Dark theme */
+--bg-color: #1a1a1a
+--card-bg: #2d2d2d
+--text-primary: #e0e0e0
+--drive-bay-bg: #1a1a1a
+```
+
+#### Theme Detection Priority
+1. localStorage value (user preference)
+2. System preference (`prefers-color-scheme: dark`)
+3. Default to light theme
+
+### Optional Devices
+
+#### ZIL/SLOG Sizing
+- **Formula**: Match RAM size or minimum 8 GB
+- **Redundancy**: Single device or mirrored pair
+- **Purpose**: Fast SSD for sync writes
+
+#### L2ARC Sizing
+- **Formula**: 5x RAM size
+- **Redundancy**: None (cache is disposable)
+- **Max Devices**: 4
+- **Purpose**: Extended read cache on SSD
+
+#### Metadata vdev Sizing
+- **Formula**: 15% of pool capacity (middle of 10-20% range)
+- **Minimum**: 32 GB
+- **Redundancy**: Mirror (2-way) or 3-way mirror (critical!)
+- **Purpose**: Stores filesystem metadata and small blocks
+- **Warning**: Loss of metadata vdev = loss of entire pool
+
+## Development Workflow
+
+### Setup
+```bash
+npm install
+npm run dev         # Dev server at http://localhost:5173
+```
+
+### Building
+```bash
+npm run build       # Production build to dist/
+npm run preview     # Preview production build
+```
+
+### Git Workflow
+- Main branch: `main`
+- Feature branches: `claude/feature-name-{sessionId}`
+- Commit messages: Conventional format with detailed descriptions
+- Always test build before committing
+
+## Deployment
+
+### Docker Deployment
+
+#### Local Docker Build and Run
+```bash
+# Build image
+docker build -t zfs-calculator .
+
+# Run container
+docker run -d -p 8080:80 --name zfs-calc zfs-calculator
+
+# Access at http://localhost:8080
+```
+
+#### Docker Compose
+```bash
+# Build and run
+docker-compose up -d
+
+# Stop
+docker-compose down
+
+# Access at http://localhost:8080
+```
+
+#### Pull from GitHub Container Registry
+```bash
+# Pull latest image
+docker pull ghcr.io/tscibilia/zfs-calc:latest
+
+# Run from registry
+docker run -d -p 8080:80 ghcr.io/tscibilia/zfs-calc:latest
+```
+
+### CI/CD Pipeline
+
+#### Automated Release Workflow
+The project uses GitHub Actions for automated releases and Docker image publishing.
+
+**Workflow File**: `.github/workflows/release.yml`
+
+**Trigger**: Push to `main` branch
+
+**Version Bumping Rules** (Conventional Commits):
+- **Major version bump** (X.0.0):
+  - Breaking changes: `feat!:` or `fix!:` or `refactor!:` in commit messages
+  - Example: `feat!: redesign API for better performance`
+
+- **Minor version bump** (0.X.0):
+  - New features: `feat:` or `feature:` in commit messages
+  - Example: `feat: add export to ZFS commands`
+
+- **Patch version bump** (0.0.X):
+  - Bug fixes: `fix:` in commit messages
+  - Example: `fix: correct slop space calculation`
+
+**Workflow Steps**:
+1. **Analyze Commits**: Scans commit messages since last tag
+2. **Determine Version**: Calculates next version using semantic versioning
+3. **Create Git Tag**: Tags repository with new version (e.g., `v1.2.3`)
+4. **Generate Changelog**: Extracts commits for release notes
+5. **Create GitHub Release**: Publishes release with changelog
+6. **Build Docker Image**: Multi-platform build (amd64, arm64)
+7. **Push to GHCR**: Publishes to GitHub Container Registry with tags:
+   - `ghcr.io/tscibilia/zfs-calc:1.2.3` (full version)
+   - `ghcr.io/tscibilia/zfs-calc:1.2` (major.minor)
+   - `ghcr.io/tscibilia/zfs-calc:1` (major only)
+   - `ghcr.io/tscibilia/zfs-calc:latest` (always latest)
+
+**Example Commit Messages**:
+```bash
+# Patch bump (0.3.0 → 0.3.1)
+git commit -m "fix: correct metadata vdev size calculation"
+
+# Minor bump (0.3.1 → 0.4.0)
+git commit -m "feat: add cost calculator for drive pricing"
+
+# Major bump (0.4.0 → 1.0.0)
+git commit -m "feat!: complete UI redesign with breaking changes to URL format"
+```
+
+#### Docker Image Details
+- **Base Image**: nginx:alpine (lightweight, ~40MB total)
+- **Build Process**: Multi-stage build
+  - Stage 1: Node.js 18 Alpine for npm build
+  - Stage 2: Nginx Alpine for serving static files
+- **Platforms**: linux/amd64, linux/arm64
+- **Port**: 80 (map to any host port)
+- **Health Check**: Configured for container orchestration
+- **Compression**: Gzip enabled for static assets
+
+#### Manual Release (if needed)
+```bash
+# Create tag locally
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+
+# Workflow will automatically trigger and create release + Docker image
+```
+
+### Static Hosting Deployment
+
+The `dist/` folder can be deployed to any static hosting service:
+
+#### Netlify / Vercel
+```bash
+# Build
+npm run build
+
+# Deploy dist/ folder via CLI or drag-and-drop
+```
+
+#### GitHub Pages
+```bash
+# Add to vite.config.js:
+# base: '/zfs-calc/'
+
+npm run build
+# Deploy dist/ to gh-pages branch
+```
+
+#### Nginx (Manual)
+```bash
+npm run build
+cp -r dist/* /var/www/html/zfs-calc/
+```
+
+#### Apache (Manual)
+```bash
+npm run build
+cp -r dist/* /var/www/html/zfs-calc/
+
+# Add .htaccess for SPA routing:
+# RewriteEngine On
+# RewriteBase /zfs-calc/
+# RewriteRule ^index\.html$ - [L]
+# RewriteCond %{REQUEST_FILENAME} !-f
+# RewriteCond %{REQUEST_FILENAME} !-d
+# RewriteRule . /zfs-calc/index.html [L]
+```
+
+## Known Issues and Limitations
+
+### Current Limitations
+- No export to ZFS command line syntax
+- No cost calculations
+- No import from existing ZFS pool
+- No validation of physically possible configurations (e.g., 100x 24TB drives)
+- No performance comparisons between configurations
+
+### Browser Compatibility
+- Modern browsers only (ES6+, CSS variables, Composition API)
+- No IE11 support
+- Requires JavaScript enabled
+
+### Performance Considerations
+- Reactivity can lag with 20+ vdevs (rare use case)
+- URL length limited by browser (typically 2000-8000 chars)
+- No virtualization for very large drive lists
+
+## Future Enhancements
+
+### Potential Features
+- Export configuration to ZFS CLI commands
+- Import from existing `zpool status` output
+- Cost calculator with price per TB
+- Performance projections (IOPS, throughput)
+- Power consumption estimates
+- Visual pool topology diagram
+- Comparison mode (multiple configurations side-by-side)
+- PDF/PNG export of configuration
+- Save/load configurations locally
+- Template configurations for common use cases
+
+### Technical Improvements
+- TypeScript conversion for type safety
+- Component testing (Vitest + Vue Test Utils)
+- E2E testing (Playwright)
+- Accessibility improvements (ARIA labels, keyboard nav)
+- PWA support (offline mode, install prompt)
+- i18n support for multiple languages
+- Mobile app wrapper (Capacitor/Tauri)
+
+## Resources
+
+### ZFS Documentation
+- [OpenZFS Documentation](https://openzfs.github.io/openzfs-docs/)
+- [ZFS on Linux](https://zfsonlinux.org/)
+- [Oracle ZFS Administration Guide](https://docs.oracle.com/cd/E19253-01/819-5461/)
+
+### Inspiration
+- [Synology RAID Calculator](https://www.synology.com/en-us/support/RAID_calculator)
+- [45Drives ZFS Calculator](https://zfs-calc.45d.io/)
+
+### Vue 3 Resources
+- [Vue 3 Documentation](https://vuejs.org/)
+- [Composition API RFC](https://github.com/vuejs/rfcs/blob/master/active-rfcs/0013-composition-api.md)
+- [Vite Documentation](https://vitejs.dev/)
