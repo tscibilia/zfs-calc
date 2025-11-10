@@ -8,7 +8,7 @@
           <p class="text-muted">Plan your ZFS storage pool with accurate capacity calculations</p>
         </div>
         <button @click="toggleTheme" class="theme-toggle" title="Toggle dark mode">
-          <svg v-if="theme === 'dark'" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg v-if="theme === 'dark'" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <circle cx="12" cy="12" r="5"/>
             <line x1="12" y1="1" x2="12" y2="3"/>
             <line x1="12" y1="21" x2="12" y2="23"/>
@@ -19,7 +19,7 @@
             <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
           </svg>
-          <svg v-else width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg v-else width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
           </svg>
         </button>
@@ -117,6 +117,42 @@
                   :max-drives="4"
                   @add="addL2ARCDrive"
                   @remove="removeL2ARCDrive"
+                />
+              </div>
+            </div>
+
+            <!-- Metadata vdev -->
+            <div class="optional-device-section">
+              <label class="device-checkbox">
+                <input type="checkbox" v-model="config.useMetadataVdev" />
+                <div>
+                  <strong>Special Metadata vdev</strong>
+                  <p class="text-small text-muted">Dedicated SSDs for metadata and small blocks</p>
+                </div>
+              </label>
+
+              <div v-if="config.useMetadataVdev" class="device-config">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Size per Device (GB)</label>
+                    <input type="number" v-model.number="config.metadataVdevSizeGb" min="32" />
+                    <span class="text-small text-muted">Typical: 10-20% of data pool size</span>
+                  </div>
+                  <div class="form-group">
+                    <label>Configuration</label>
+                    <select v-model="config.metadataVdevRedundancy">
+                      <option value="mirror">Mirrored Pair (Recommended)</option>
+                      <option value="mirror3">3-way Mirror</option>
+                    </select>
+                  </div>
+                </div>
+
+                <OptionalDrives
+                  :drives="metadataVdevDrives"
+                  type="Metadata"
+                  :max-drives="config.metadataVdevRedundancy === 'mirror3' ? 3 : 2"
+                  @add="addMetadataVdevDrive"
+                  @remove="removeMetadataVdevDrive"
                 />
               </div>
             </div>
@@ -228,7 +264,7 @@
                   <span><strong>{{ results.zfsUsableTb.toFixed(2) }} TB</strong></span>
                 </div>
                 <div v-if="config.reserveFreeSpace" class="breakdown-row indent">
-                  <span>Recommended Free Space ({{ config.freeSpacePercent }}%)</span>
+                  <span>Free Space Reserved ({{ config.freeSpacePercent }}%)</span>
                   <span>-{{ (results.totalRawTb * (config.freeSpacePercent / 100)).toFixed(2) }} TB</span>
                 </div>
                 <div v-if="config.reserveFreeSpace" class="breakdown-row highlight">
@@ -300,6 +336,9 @@ const config = ref({
   zilRedundancy: 'mirror',
   useL2ARC: false,
   l2arcSizeGb: 64,
+  useMetadataVdev: false,
+  metadataVdevSizeGb: 128,
+  metadataVdevRedundancy: 'mirror',
   ramScenario: 'basic',
   reserveFreeSpace: true,
   freeSpacePercent: 20
@@ -308,6 +347,7 @@ const config = ref({
 // Optional drives state
 const zilDrives = ref([])
 const l2arcDrives = ref([])
+const metadataVdevDrives = ref([])
 
 // Initialize with one vdev
 const addVdev = () => {
@@ -356,6 +396,18 @@ const removeL2ARCDrive = (index) => {
   l2arcDrives.value.splice(index, 1)
 }
 
+// Metadata vdev management
+const addMetadataVdevDrive = () => {
+  const maxDrives = config.value.metadataVdevRedundancy === 'mirror3' ? 3 : 2
+  if (metadataVdevDrives.value.length < maxDrives) {
+    metadataVdevDrives.value.push({ sizeGb: config.value.metadataVdevSizeGb })
+  }
+}
+
+const removeMetadataVdevDrive = (index) => {
+  metadataVdevDrives.value.splice(index, 1)
+}
+
 // Watch ZIL config changes
 watch(() => config.value.useZIL, (useZIL) => {
   if (useZIL && zilDrives.value.length === 0) {
@@ -381,6 +433,23 @@ watch(() => config.value.useL2ARC, (useL2ARC) => {
     addL2ARCDrive()
   } else if (!useL2ARC) {
     l2arcDrives.value = []
+  }
+})
+
+watch(() => config.value.useMetadataVdev, (useMetadata) => {
+  if (useMetadata && metadataVdevDrives.value.length === 0) {
+    addMetadataVdevDrive()
+    addMetadataVdevDrive() // Always start with a mirror
+  } else if (!useMetadata) {
+    metadataVdevDrives.value = []
+  }
+})
+
+watch(() => config.value.metadataVdevRedundancy, (redundancy) => {
+  if (redundancy === 'mirror3' && metadataVdevDrives.value.length === 2) {
+    addMetadataVdevDrive()
+  } else if (redundancy === 'mirror' && metadataVdevDrives.value.length > 2) {
+    metadataVdevDrives.value = metadataVdevDrives.value.slice(0, 2)
   }
 })
 
@@ -438,6 +507,11 @@ const serializeToURL = () => {
         s: config.value.l2arcSizeGb,
         n: l2arcDrives.value.length
       } : null,
+      meta: config.value.useMetadataVdev ? {
+        s: config.value.metadataVdevSizeGb,
+        r: config.value.metadataVdevRedundancy,
+        n: metadataVdevDrives.value.length
+      } : null,
       ram: config.value.ramScenario,
       free: config.value.reserveFreeSpace,
       pct: config.value.freeSpacePercent
@@ -492,6 +566,13 @@ const deserializeFromURL = () => {
         l2arcDrives.value = Array(data.c.l2.n).fill(null).map(() => ({ sizeGb: data.c.l2.s }))
       }
 
+      if (data.c.meta) {
+        config.value.useMetadataVdev = true
+        config.value.metadataVdevSizeGb = data.c.meta.s
+        config.value.metadataVdevRedundancy = data.c.meta.r
+        metadataVdevDrives.value = Array(data.c.meta.n).fill(null).map(() => ({ sizeGb: data.c.meta.s }))
+      }
+
       if (data.c.ram) config.value.ramScenario = data.c.ram
       if (data.c.free !== undefined) config.value.reserveFreeSpace = data.c.free
       if (data.c.pct) config.value.freeSpacePercent = data.c.pct
@@ -505,7 +586,7 @@ const deserializeFromURL = () => {
 }
 
 // Watch for changes and update URL
-watch([vdevs, config, zilDrives, l2arcDrives], () => {
+watch([vdevs, config, zilDrives, l2arcDrives, metadataVdevDrives], () => {
   serializeToURL()
 }, { deep: true })
 
@@ -552,20 +633,23 @@ onMounted(() => {
 }
 
 .theme-toggle {
-  background-color: transparent;
-  border: 1px solid var(--border-color);
-  width: 40px;
-  height: 40px;
+  background-color: var(--bg-color);
+  border: 2px solid var(--border-color);
+  width: 48px;
+  height: 48px;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-primary);
   flex-shrink: 0;
+  transition: all 0.2s;
 }
 
 .theme-toggle:hover {
-  background-color: var(--bg-color);
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
 }
 
 .container {

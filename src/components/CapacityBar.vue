@@ -38,7 +38,7 @@
     <div class="capacity-legend">
       <div class="legend-item">
         <span class="legend-color reserved"></span>
-        <span>Reserved capacity for system</span>
+        <span>System Reserved</span>
       </div>
       <div class="legend-item">
         <span class="legend-color available"></span>
@@ -50,7 +50,7 @@
       </div>
       <div class="legend-item">
         <span class="legend-color unused"></span>
-        <span>Recommended Free Space</span>
+        <span>Free Space Reserved</span>
       </div>
     </div>
   </div>
