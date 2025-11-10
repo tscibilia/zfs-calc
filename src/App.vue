@@ -8,7 +8,7 @@
           <p class="text-muted">Plan your ZFS storage pool with accurate capacity calculations</p>
         </div>
         <button @click="toggleTheme" class="theme-toggle" title="Toggle dark mode">
-          <svg v-if="theme === 'dark'" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <svg v-if="theme === 'dark'" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <circle cx="12" cy="12" r="5"/>
             <line x1="12" y1="1" x2="12" y2="3"/>
             <line x1="12" y1="21" x2="12" y2="23"/>
@@ -19,7 +19,7 @@
             <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
           </svg>
-          <svg v-else width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <svg v-else width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
           </svg>
         </button>
@@ -136,7 +136,7 @@
                   <div class="form-group">
                     <label>Size per Device (GB)</label>
                     <input type="number" v-model.number="config.metadataVdevSizeGb" min="32" />
-                    <span class="text-small text-muted">Typical: 10-20% of data pool size</span>
+                    <span class="text-small text-muted">Recommended: {{ recommendedMetadataVdevSize }} GB (15% of pool)</span>
                   </div>
                   <div class="form-group">
                     <label>Configuration</label>
@@ -475,6 +475,13 @@ const recommendedZILSize = computed(() => {
 
 const recommendedL2ARCSize = computed(() => {
   return calculateL2ARCSize(recommendedRAM.value)
+})
+
+const recommendedMetadataVdevSize = computed(() => {
+  // Calculate 15% of pool (middle of 10-20% range) in GB
+  // Minimum 32 GB
+  const poolSizeGb = results.value.totalRawTb * 1000
+  return Math.max(32, Math.ceil(poolSizeGb * 0.15))
 })
 
 // Share functionality

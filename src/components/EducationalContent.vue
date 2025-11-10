@@ -335,9 +335,23 @@ const terminology = [
 
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: 1fr; /* Mobile: 1 column (4 rows) */
   gap: 1.5rem;
   margin-top: 1rem;
+}
+
+/* Tablet: 2 columns (2 rows of 2) */
+@media (min-width: 768px) {
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Desktop: 4 columns (1 row of 4) */
+@media (min-width: 1200px) {
+  .features-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .feature-card {
