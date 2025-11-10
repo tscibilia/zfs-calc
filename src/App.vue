@@ -159,7 +159,7 @@
                 </div>
                 <div class="stat-item">
                   <span class="stat-label">Efficiency:</span>
-                  <span class="stat-value">{{ ((results.zfsUsableTb / results.totalRawTb * 100) || 0).toFixed(1) }}%</span>
+                  <span class="stat-value">{{ results.totalRawTb > 0 ? ((results.zfsUsableTb / results.totalRawTb * 100)).toFixed(1) : '0.0' }}%</span>
                 </div>
                 <div class="stat-item">
                   <span class="stat-label">vdevs:</span>
